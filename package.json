@@ -1,0 +1,83 @@
+{
+  "name": "bloom-notch-app",
+  "version": "1.0.0",
+  "description": "Always-on-top notch overlay with Spotify playback, Notion events, offline tools, and a gated launcher.",
+  "main": "main.js",
+  "author": "Bloom Notch",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "test": "node security-test.js && node integration-test.js",
+    "icon": "node tools/make-icon.js",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win nsis portable"
+  },
+  "devDependencies": {
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0"
+  },
+  "overrides": {
+    "minimatch": ">=11.0.1"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Human-prog/bloom-notch"
+  },
+  "build": {
+    "appId": "com.bloom.notch",
+    "productName": "Bloom Notch",
+    "copyright": "Copyright 2026 Bloom Notch",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "bloom-notch.html",
+      "signal-handler.js",
+      "auth/**/*",
+      "integrations/**/*",
+      "privacy/**/*",
+      "package.json",
+      "!**/*.map",
+      "!**/node_modules/**"
+    ],
+    "asar": true,
+    "electronDist": "node_modules/electron/dist",
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Bloom Notch",
+      "uninstallDisplayName": "Bloom Notch",
+      "artifactName": "Bloom-Notch-Setup-${version}.${ext}"
+    },
+    "portable": {
+      "artifactName": "Bloom-Notch-Portable-${version}.${ext}"
+    }
+  }
+}

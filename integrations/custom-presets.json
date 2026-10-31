@@ -1,0 +1,78 @@
+[
+  {
+    "name": "Discord",
+    "id": "discord",
+    "baseUrl": "https://discord.com/api",
+    "authType": "oauth",
+    "clientId": "",
+    "scope": "identify guilds",
+    "redirectUri": "http://127.0.0.1:8765/callback",
+    "tokenHeaderName": "Authorization",
+    "endpoints": {
+      "me": { "method": "GET", "path": "/users/@me" },
+      "guilds": { "method": "GET", "path": "/users/@me/guilds" }
+    }
+  },
+  {
+    "name": "GitHub",
+    "id": "github",
+    "baseUrl": "https://api.github.com",
+    "authType": "token",
+    "clientId": "",
+    "scope": "",
+    "tokenHeaderName": "Authorization",
+    "endpoints": {
+      "me": { "method": "GET", "path": "/user" },
+      "repos": { "method": "GET", "path": "/user/repos" },
+      "issues": { "method": "GET", "path": "/repos/{owner}/{repo}/issues" }
+    }
+  },
+  {
+    "name": "Obsidian (Local Sync)",
+    "id": "obsidian",
+    "baseUrl": "https://localhost:27123",
+    "authType": "token",
+    "clientId": "",
+    "tokenHeaderName": "Authorization",
+    "endpoints": {
+      "vault": { "method": "GET", "path": "/" }
+    }
+  },
+  {
+    "name": "Todoist",
+    "id": "todoist",
+    "baseUrl": "https://api.todoist.com/rest/v2",
+    "authType": "token",
+    "clientId": "",
+    "tokenHeaderName": "Authorization",
+    "endpoints": {
+      "tasks": { "method": "GET", "path": "/tasks" },
+      "projects": { "method": "GET", "path": "/projects" }
+    }
+  },
+  {
+    "name": "Google Calendar",
+    "id": "google-calendar",
+    "baseUrl": "https://www.googleapis.com/calendar/v3",
+    "authType": "oauth",
+    "clientId": "",
+    "scope": "https://www.googleapis.com/auth/calendar.readonly",
+    "redirectUri": "http://127.0.0.1:8765/callback",
+    "tokenHeaderName": "Authorization",
+    "endpoints": {
+      "events": { "method": "GET", "path": "/calendars/primary/events" }
+    }
+  },
+  {
+    "name": "Figma",
+    "id": "figma",
+    "baseUrl": "https://api.figma.com/v1",
+    "authType": "token",
+    "clientId": "",
+    "tokenHeaderName": "X-Figma-Token",
+    "endpoints": {
+      "me": { "method": "GET", "path": "/me" },
+      "files": { "method": "GET", "path": "/files/{file_key}" }
+    }
+  }
+]

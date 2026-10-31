@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Electron build output
+dist/
+out/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Electron downloaded binary
+node_modules/electron/dist/

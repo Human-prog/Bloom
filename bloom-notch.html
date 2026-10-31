@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; font-src 'self'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'">
+<title>Bloom Notch</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#121214;--panel:#1c1c1e;--panel-2:#232329;--border:#2c2c2e;
+  --text:#f5f5f7;--muted:#86868b;
+  --accent:#0a84ff;--accent-soft:rgba(10,132,255,.16);
+  --green:#30d158;--red:#ff453a;--orange:#ff9f0a;--purple:#bf5af2;
+  --font:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --radius-pill:9999px;--radius-card:12px;--radius-ctrl:10px;
+  --dur:.34s;--ease:cubic-bezier(.22,1,.36,1);
+}
+html,body{width:100%;height:100%;background:transparent;overflow:hidden}
+body{font-family:var(--font);color:var(--text);-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
+button{font-family:inherit}
+svg{display:block}
+@keyframes contentIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes slideUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+.reduce-motion *{animation-duration:.001s!important;transition-duration:.001s!important}
+
+/* ---------- notch shell ---------- */
+#bloom-notch{
+  position:fixed;top:0;left:50%;transform:translateX(-50%);
+  width:180px;height:32px;background:#000;
+  border-radius:0 0 14px 14px;
+  display:flex;flex-direction:column;align-items:stretch;
+  overflow:hidden;z-index:2147483647;
+  box-shadow:inset 0 -1px 0 rgba(255,255,255,.06);
+  transition:width var(--dur) var(--ease),height var(--dur) var(--ease),border-radius .26s ease,background-color .2s ease;
+  -webkit-app-region:no-drag;
+}
+#bloom-notch.expanded{
+  width:440px;height:440px;background:var(--bg);
+  border:1px solid var(--border);border-radius:0 0 22px 22px;
+  padding:12px 14px 14px;
+  box-shadow:0 24px 64px rgba(0,0,0,.55),0 0 48px var(--accent-soft);
+}
+.collapsed-bar{display:flex;align-items:center;justify-content:center;gap:7px;height:32px;padding:0 12px;white-space:nowrap;flex-shrink:0;overflow:hidden}
+.brand-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 8px var(--accent);flex-shrink:0}
+.brand{font-size:11px;font-weight:600;letter-spacing:.2px;line-height:1}
+.collapsed-time{font-size:11px;font-weight:500;color:var(--muted);font-variant-numeric:tabular-nums;line-height:1}
+#bloom-notch.expanded .collapsed-bar{display:none}
+
+.expanded-view{display:none;flex-direction:column;gap:10px;width:100%;height:100%;min-height:0}
+#bloom-notch.expanded .expanded-view{display:flex;animation:contentIn .24s var(--ease)}
+
+/* ---------- header ---------- */
+.notch-header{display:flex;align-items:center;justify-content:space-between;gap:8px;height:34px;flex-shrink:0}
+.header-brand{display:flex;align-items:center;gap:7px;min-width:0}
+.version{font-size:9px;color:var(--muted);border:1px solid var(--border);border-radius:var(--radius-pill);padding:2px 7px;line-height:1.1}
+.header-right{display:flex;align-items:center;gap:8px}
+.clock{text-align:right;line-height:1.15}
+.clock-time{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;letter-spacing:-.2px}
+.clock-date{font-size:9.5px;color:var(--muted)}
+.icon-btn{width:28px;height:28px;border-radius:8px;border:1px solid transparent;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,color .15s,border-color .15s;-webkit-app-region:no-drag}
+.icon-btn:hover{background:var(--panel-2);color:var(--text);border-color:var(--border)}
+.icon-btn svg{width:15px;height:15px}
+
+/* ---------- tabs ---------- */
+.tab-bar{display:flex;gap:0;padding:4px;background:var(--panel);border:1px solid var(--border);border-radius:14px;flex-shrink:0}
+.tab-btn{flex:1;position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:44px;border:none;border-radius:10px;background:transparent;color:var(--muted);cursor:pointer;font-size:8.5px;font-weight:600;letter-spacing:.1px;transition:background .15s,color .15s;-webkit-app-region:no-drag}
+.tab-btn svg{width:15px;height:15px}
+.tab-btn:hover{background:var(--panel-2);color:var(--text)}
+.tab-btn.active{background:var(--accent-soft);color:var(--accent)}
+.tab-btn .dot{position:absolute;top:5px;left:50%;margin-left:6px;width:5px;height:5px;border-radius:50%;background:var(--red)}
+
+/* ---------- content ---------- */
+.tab-content{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding-right:2px}
+.tab-content::-webkit-scrollbar{width:4px}
+.tab-content::-webkit-scrollbar-thumb{background:#3a3a3c;border-radius:2px}
+.tab-panel{display:none;flex-direction:column;gap:10px;min-height:100%}
+.tab-panel.active{display:flex;animation:slideUp .18s ease}
+.panel-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-shrink:0}
+.panel-title{font-size:13px;font-weight:600;letter-spacing:-.2px}
+.panel-sub{font-size:9.5px;color:var(--muted);text-align:right}
+.card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-card);padding:12px}
+.empty{font-size:10.5px;color:var(--muted);text-align:center;padding:14px 8px}
+
+/* ---------- buttons ---------- */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:5px;border-radius:var(--radius-ctrl);border:1px solid var(--border);background:var(--panel-2);color:var(--text);font-size:11px;font-weight:600;padding:7px 12px;cursor:pointer;transition:background .15s,border-color .15s,transform .1s}
+.btn:hover{background:#2c2c2e;border-color:#3a3a3c}
+.btn:active{transform:scale(.98)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.danger{background:var(--red);border-color:var(--red);color:#fff}
+.btn.danger:hover{filter:brightness(1.08)}
+.btn.ghost{background:transparent}
+.btn.wide{width:100%}
+.btn.small{padding:5px 9px;font-size:10px}
+.btn:disabled{opacity:.45;cursor:default;transform:none}
+
+/* ---------- apps ---------- */
+.app-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.app-tile{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 4px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-card);cursor:pointer;transition:transform .15s,border-color .15s,background .15s;color:var(--text);font-size:9.5px;font-weight:500}
+.app-tile:hover{border-color:var(--accent);background:var(--panel-2);transform:translateY(-1px)}
+.app-tile svg{width:20px;height:20px;color:var(--accent)}
+.app-tile span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gate-title{font-size:11px;font-weight:600;margin-bottom:5px}
+.gate-result{font-size:10px;color:var(--muted);padding:7px 9px;background:var(--bg);border:1px solid var(--border);border-radius:8px;line-height:1.4;word-break:break-word}
+.gate-result.deny{color:var(--orange);border-color:rgba(255,159,10,.35)}
+.gate-result.ok{color:var(--green);border-color:rgba(48,209,88,.35)}
+.gate-note{font-size:9px;color:var(--muted);margin-top:7px;line-height:1.45}
+
+/* ---------- music ---------- */
+.now-playing{background:linear-gradient(135deg,#1db954,#0f7a37);border-radius:14px;padding:12px;display:flex;gap:12px;align-items:center;flex-shrink:0}
+.album-art{width:64px;height:64px;border-radius:12px;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.album-art svg{width:28px;height:28px;color:#fff;opacity:.92}
+.track{flex:1;min-width:0}
+.track-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track-artist{font-size:11px;color:rgba(255,255,255,.78);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.progress-bar{height:4px;background:rgba(255,255,255,.25);border-radius:2px;margin-top:8px;overflow:hidden}
+.progress-fill{height:100%;width:0%;background:#fff;border-radius:2px;transition:width .2s linear}
+.controls{display:flex;align-items:center;gap:6px;margin-top:8px}
+.control-btn{width:30px;height:30px;border-radius:50%;border:none;background:rgba(255,255,255,.18);color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:background .15s,transform .1s}
+.control-btn:hover{background:rgba(255,255,255,.3)}
+.control-btn:active{transform:scale(.94)}
+.control-btn svg{width:14px;height:14px}
+.control-btn.play{width:38px;height:38px;background:#fff;color:#0f7a37}
+.music-foot{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.source-note{font-size:9px;color:var(--muted)}
+
+/* ---------- lists ---------- */
+.list{display:flex;flex-direction:column;gap:6px}
+.row-item{display:flex;align-items:center;gap:9px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-ctrl);padding:8px 10px}
+.row-icon{width:26px;height:26px;border-radius:8px;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.row-icon svg{width:14px;height:14px}
+.row-body{flex:1;min-width:0}
+.row-title{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-sub{font-size:9.5px;color:var(--muted);margin-top:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row-actions{display:flex;gap:4px;flex-shrink:0}
+.mini-btn{border:none;background:transparent;color:var(--muted);font-size:10px;cursor:pointer;padding:3px 5px;border-radius:6px}
+.mini-btn:hover{background:var(--panel-2);color:var(--text)}
+.mini-btn.danger:hover{color:var(--red)}
+
+/* ---------- shelf ---------- */
+.shelf-drop{border:1.5px dashed var(--border);border-radius:var(--radius-card);padding:16px;text-align:center;color:var(--muted);font-size:11px;transition:border-color .15s,background .15s,color .15s;cursor:default}
+.shelf-drop.drag-over{border-color:var(--accent);background:var(--accent-soft);color:var(--text)}
+.shelf-drop svg{width:20px;height:20px;margin:0 auto 6px;color:var(--muted)}
+.shelf-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+
+/* ---------- calendar ---------- */
+.cal-head{display:flex;align-items:center;justify-content:space-between}
+.cal-title{font-size:12px;font-weight:600}
+.cal-nav{display:flex;gap:4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dow{font-size:9px;color:var(--muted);text-align:center;padding:2px 0;font-weight:600}
+.cal-day{font-size:10px;text-align:center;padding:5px 0;border-radius:6px;cursor:pointer;position:relative}
+.cal-day:hover{background:var(--panel-2)}
+.cal-day.today{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.cal-day.selected{outline:1px solid var(--accent)}
+.cal-day.has-event::after{content:"";position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:3px;height:3px;border-radius:50%;background:var(--accent)}
+.cal-day.empty{visibility:hidden}
+.event-item{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-ctrl);padding:8px 10px}
+.event-time{font-size:10px;font-weight:600;color:var(--accent);min-width:42px}
+.event-title{font-size:11px;font-weight:500}
+.event-meta{font-size:9px;color:var(--muted);margin-top:1px}
+
+/* ---------- tools ---------- */
+.segmented{display:flex;gap:2px;padding:3px;background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-ctrl);flex-shrink:0}
+.seg-btn{flex:1;padding:6px 3px;border:none;border-radius:7px;background:transparent;color:var(--muted);font-size:9.5px;font-weight:600;cursor:pointer;transition:background .15s,color .15s}
+.seg-btn:hover{color:var(--text)}
+.seg-btn.active{background:var(--panel-2);color:var(--text)}
+.tool-pane{display:none;flex-direction:column;gap:8px}
+.tool-pane.active{display:flex}
+.field{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:11px;font-family:inherit;outline:none;resize:none}
+.field:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+textarea.field{min-height:64px;line-height:1.45}
+.field-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.inline{display:flex;gap:6px;align-items:center}
+.inline .field{flex:1}
+.result-box{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:9px 10px;font-size:11px;line-height:1.45;min-height:34px;color:var(--text);word-break:break-word}
+.tele-view{height:110px;overflow:hidden;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px;position:relative}
+.tele-inner{font-size:15px;line-height:1.55;color:var(--text);transition:transform .05s linear;will-change:transform}
+.speed-row{display:flex;align-items:center;gap:8px;font-size:10px;color:var(--muted)}
+.speed-row input[type=range]{flex:1;accent-color:var(--accent)}
+.note-item{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius-ctrl);padding:9px 10px;display:flex;flex-direction:column;gap:6px}
+.note-text{font-size:11px;line-height:1.45;white-space:pre-wrap;word-break:break-word}
+.note-foot{display:flex;justify-content:flex-end}
+.currency-out{font-size:22px;font-weight:700;letter-spacing:-.5px;text-align:center;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px}
+.select{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 8px;color:var(--text);font-size:11px;font-family:inherit;outline:none}
+.select:focus{border-color:var(--accent)}
+
+/* ---------- settings ---------- */
+.setting-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 0;border-bottom:1px solid var(--border)}
+.setting-row:last-child{border-bottom:none}
+.setting-label{font-size:11.5px;font-weight:500}
+.setting-hint{font-size:9px;color:var(--muted);margin-top:1px}
+.switch{width:38px;height:22px;border-radius:11px;background:#3a3a3c;border:none;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.switch::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;transition:transform .2s}
+.switch.on{background:var(--green)}
+.switch.on::after{transform:translateX(16px)}
+.divider{height:1px;background:var(--border);margin:10px 0}
+.conn-actions{display:flex;gap:6px;margin-top:6px}
+.conn-actions .btn{flex:1}
+.swatches{display:flex;gap:6px}
+.swatch{width:20px;height:20px;border-radius:50%;border:2px solid transparent;cursor:pointer;transition:transform .1s}
+.swatch:hover{transform:scale(1.1)}
+.swatch.active{border-color:#fff}
+
+/* ---------- privacy ---------- */
+.stat-row{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10.5px;padding:4px 0}
+.stat-label{color:var(--muted)}
+.stat-value{font-weight:600;font-variant-numeric:tabular-nums}
+.badge{font-size:9px;font-weight:600;padding:2px 7px;border-radius:var(--radius-pill);white-space:nowrap}
+.badge.green{background:rgba(48,209,88,.15);color:var(--green)}
+.badge.gray{background:var(--panel-2);color:var(--muted)}
+.badge.blue{background:var(--accent-soft);color:var(--accent)}
+.data-flow{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:10px;padding:4px 0;color:var(--muted);border-bottom:1px solid rgba(255,255,255,.04)}
+.data-flow:last-child{border-bottom:none}
+.data-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.halt-card{border-color:rgba(255,69,58,.35);background:rgba(255,69,58,.07)}
+.halt-title{font-size:11.5px;font-weight:600;color:var(--red);margin-bottom:3px}
+.halt-note{font-size:9px;color:var(--muted);margin-bottom:9px;line-height:1.45}
+
+/* ---------- toast ---------- */
+#toast{position:absolute;left:50%;bottom:16px;transform:translateX(-50%) translateY(8px);background:rgba(28,28,30,.97);border:1px solid var(--border);border-radius:var(--radius-pill);color:var(--text);padding:7px 14px;font-size:10.5px;box-shadow:0 10px 30px rgba(0,0,0,.5);opacity:0;pointer-events:none;transition:opacity .2s,transform .2s;z-index:2147483649;white-space:nowrap;max-width:92%;overflow:hidden;text-overflow:ellipsis}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+<div id="bloom-notch" class="collapsed" role="region" aria-label="Bloom Notch">
+  <div class="collapsed-bar" id="collapsed-bar">
+    <span class="brand-dot"></span>
+    <span class="brand">Bloom</span>
+    <span class="collapsed-time" id="collapsed-time">9:41</span>
+  </div>
+
+  <div class="expanded-view">
+    <header class="notch-header">
+      <div class="header-brand">
+        <span class="brand-dot"></span>
+        <span class="brand">Bloom</span>
+        <span class="version">v1.0</span>
+      </div>
+      <div class="header-right">
+        <div class="clock">
+          <div class="clock-time" id="expanded-clock-time">9:41</div>
+          <div class="clock-date" id="expanded-clock-date">Mon, Jan 1</div>
+        </div>
+        <button class="icon-btn" id="collapse-btn" aria-label="Collapse notch" title="Collapse (Esc)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 15l6-6 6 6"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <nav class="tab-bar" role="tablist" aria-label="Notch sections">
+      <button class="tab-btn active" id="tab-apps" data-tab="apps" role="tab" aria-selected="true" aria-controls="panel-apps" title="Apps">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+        <span>Apps</span>
+      </button>
+      <button class="tab-btn" id="tab-music" data-tab="music" role="tab" aria-selected="false" aria-controls="panel-music" title="Music">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+        <span>Music</span>
+      </button>
+      <button class="tab-btn" id="tab-shelf" data-tab="shelf" role="tab" aria-selected="false" aria-controls="panel-shelf" title="Shelf">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></svg>
+        <span>Shelf</span>
+      </button>
+      <button class="tab-btn" id="tab-clip" data-tab="clip" role="tab" aria-selected="false" aria-controls="panel-clip" title="Clipboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/><path d="M9 10h6M9 14h6"/></svg>
+        <span>Clip</span>
+      </button>
+      <button class="tab-btn" id="tab-cal" data-tab="cal" role="tab" aria-selected="false" aria-controls="panel-cal" title="Calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>
+        <span>Cal</span>
+      </button>
+      <button class="tab-btn" id="tab-notifs" data-tab="notifs" role="tab" aria-selected="false" aria-controls="panel-notifs" title="Notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 4 1.5 5.5 2 6H4c.5-.5 2-2 2-6Z"/><path d="M10 19a2 2 0 0 0 4 0"/></svg>
+        <span>Alerts</span>
+        <span class="dot" id="notif-tab-dot"></span>
+      </button>
+      <button class="tab-btn" id="tab-tools" data-tab="tools" role="tab" aria-selected="false" aria-controls="panel-tools" title="Tools">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
+        <span>Tools</span>
+      </button>
+      <button class="tab-btn" id="tab-prefs" data-tab="prefs" role="tab" aria-selected="false" aria-controls="panel-prefs" title="Settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9l2.1 2.1M17 17l2.1 2.1M19.1 4.9L17 7M7 17l-2.1 2.1"/></svg>
+        <span>Prefs</span>
+      </button>
+      <button class="tab-btn" id="tab-privacy" data-tab="privacy" role="tab" aria-selected="false" aria-controls="panel-privacy" title="Privacy">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 5-3.5 8.5-7 10-3.5-1.5-7-5-7-10V6l7-3Z"/><path d="M9 12l2 2 4-4"/></svg>
+        <span>Privacy</span>
+      </button>
+    </nav>
+
+    <div class="tab-content">
+      <section class="tab-panel active" id="panel-apps" data-panel="apps" role="tabpanel" aria-labelledby="tab-apps">
+        <div class="panel-head"><span class="panel-title">Apps</span><span class="panel-sub">Gated by GhostControl</span></div>
+        <div class="app-grid">
+          <button class="app-tile" data-exe="notepad.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg><span>Notepad</span></button>
+          <button class="app-tile" data-exe="calc.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 12h2M14 12h2M8 16h2M14 16h2"/></svg><span>Calculator</span></button>
+          <button class="app-tile" data-exe="explorer.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span>Explorer</span></button>
+          <button class="app-tile" data-exe="chrome.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3h8M4 7l5 8M20 17l-6 1"/></svg><span>Chrome</span></button>
+          <button class="app-tile" data-exe="cmd.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg><span>Terminal</span></button>
+          <button class="app-tile" data-exe="powershell.exe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 8l4 4-4 4M13 16h4"/></svg><span>PowerShell</span></button>
+        </div>
+        <div class="card">
+          <div class="gate-title">GhostControl launch gate</div>
+          <div class="gate-result" id="gate-result">No launch attempted.</div>
+          <div class="gate-note">Validation - Permission - Action gate - Execution - Cleanup. Launch requests stay denied until an explicit approval flow is wired. Only whitelisted executables can ever pass.</div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-music" data-panel="music" role="tabpanel" aria-labelledby="tab-music">
+        <div class="panel-head"><span class="panel-title">Music</span><span class="panel-sub">Spotify / local</span></div>
+        <div class="now-playing">
+          <div class="album-art">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg>
+          </div>
+          <div class="track">
+            <div class="track-title" id="sp-title">Not playing</div>
+            <div class="track-artist" id="sp-artist">Connect Spotify</div>
+            <div class="progress-bar"><div class="progress-fill" id="sp-progress"></div></div>
+            <div class="controls">
+              <button class="control-btn" id="sp-prev" aria-label="Previous track"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h2v14H6zM19 5v14l-9-7z"/></svg></button>
+              <button class="control-btn play" id="sp-play" aria-label="Play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></button>
+              <button class="control-btn" id="sp-next" aria-label="Next track"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 5h2v14h-2zM5 5v14l9-7z"/></svg></button>
+            </div>
+          </div>
+        </div>
+        <div class="music-foot">
+          <span class="source-note" id="sp-source">Add your Client ID in Settings.</span>
+          <button class="btn small" id="sp-connect">Connect</button>
+          <button class="btn small ghost" id="sp-disconnect" style="display:none">Disconnect</button>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-shelf" data-panel="shelf" role="tabpanel" aria-labelledby="tab-shelf">
+        <div class="panel-head"><span class="panel-title">Shelf</span><span class="panel-sub">Names only, session memory</span></div>
+        <div class="shelf-drop" id="shelf-drop">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/></svg>
+          Drop files here
+        </div>
+        <div class="list" id="shelf-list"></div>
+        <button class="btn ghost small wide" id="shelf-clear">Clear shelf</button>
+        <div class="source-note">File contents are never read, copied, or stored.</div>
+      </section>
+
+      <section class="tab-panel" id="panel-clip" data-panel="clip" role="tabpanel" aria-labelledby="tab-clip">
+        <div class="panel-head"><span class="panel-title">Clipboard</span><span class="panel-sub">Session only</span></div>
+        <div class="list" id="clip-list"></div>
+        <div class="inline">
+          <button class="btn small" id="clip-read">Paste from clipboard</button>
+          <button class="btn small ghost" id="clip-clear">Clear</button>
+        </div>
+        <div class="source-note">Never written to disk. Cleared on quit or halt.</div>
+      </section>
+
+      <section class="tab-panel" id="panel-cal" data-panel="cal" role="tabpanel" aria-labelledby="tab-cal">
+        <div class="panel-head"><span class="panel-title">Calendar</span><span class="panel-sub" id="cal-sub">Local only</span></div>
+        <div class="cal-head">
+          <span class="cal-title" id="cal-title">Month</span>
+          <div class="cal-nav">
+            <button class="icon-btn" id="cal-prev" aria-label="Previous month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+            <button class="icon-btn" id="cal-next" aria-label="Next month"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+          </div>
+        </div>
+        <div class="cal-grid" id="cal-grid"></div>
+        <div class="list" id="cal-events"></div>
+      </section>
+
+      <section class="tab-panel" id="panel-notifs" data-panel="notifs" role="tabpanel" aria-labelledby="tab-notifs">
+        <div class="panel-head"><span class="panel-title">Notifications</span><span class="panel-sub" id="notif-count-label">0 items</span></div>
+        <div class="list" id="notif-list"></div>
+        <button class="btn ghost small wide" id="notif-clear">Clear all</button>
+      </section>
+
+      <section class="tab-panel" id="panel-tools" data-panel="tools" role="tabpanel" aria-labelledby="tab-tools">
+        <div class="panel-head"><span class="panel-title">Tools</span><span class="panel-sub">All offline</span></div>
+        <div class="segmented" id="tool-seg">
+          <button class="seg-btn active" data-tool="translate">Translate</button>
+          <button class="seg-btn" data-tool="currency">Currency</button>
+          <button class="seg-btn" data-tool="tele">Teleprompter</button>
+          <button class="seg-btn" data-tool="notes">Notes</button>
+        </div>
+
+        <div class="tool-pane active" data-tool-pane="translate">
+          <div class="field-label">Source text</div>
+          <textarea class="field" id="translate-src" placeholder="Type a phrase...">hello</textarea>
+          <div class="inline">
+            <select class="select" id="translate-lang">
+              <option value="es">Spanish</option>
+              <option value="fr">French</option>
+              <option value="de">German</option>
+              <option value="ja">Japanese</option>
+            </select>
+            <button class="btn small primary" id="translate-go">Translate</button>
+          </div>
+          <div class="result-box" id="translate-dst">Offline phrasebook demo.</div>
+        </div>
+
+        <div class="tool-pane" data-tool-pane="currency">
+          <div class="field-label">Amount</div>
+          <input class="field" id="cur-amount" type="number" value="100" min="0" step="0.01">
+          <div class="inline">
+            <select class="select" id="cur-from"><option>USD</option><option>EUR</option><option>GBP</option><option>JPY</option></select>
+            <span class="field-label">to</span>
+            <select class="select" id="cur-to"><option>EUR</option><option>USD</option><option>GBP</option><option>JPY</option></select>
+          </div>
+          <div class="currency-out" id="cur-out">92.00 EUR</div>
+          <div class="source-note">Static offline reference rates. Not live market data.</div>
+        </div>
+
+        <div class="tool-pane" data-tool-pane="tele">
+          <div class="field-label">Script</div>
+          <textarea class="field" id="tele-text">Welcome to Bloom Notch. This is your teleprompter. Type a script, set the speed, then press Start.</textarea>
+          <div class="tele-view"><div class="tele-inner" id="tele-inner">Welcome to Bloom Notch. This is your teleprompter.</div></div>
+          <div class="speed-row"><span>Speed</span><input type="range" id="tele-speed" min="10" max="120" value="40"><span id="tele-speed-label">40</span></div>
+          <div class="inline">
+            <button class="btn small primary" id="tele-start">Start</button>
+            <button class="btn small ghost" id="tele-stop" disabled>Stop</button>
+          </div>
+        </div>
+
+        <div class="tool-pane" data-tool-pane="notes">
+          <div class="field-label">New note</div>
+          <textarea class="field" id="note-input" placeholder="Write something..."></textarea>
+          <button class="btn small primary" id="note-add">Add note</button>
+          <div class="list" id="notes-list"></div>
+          <div class="source-note">Session memory only. Never persisted.</div>
+        </div>
+      </section>
+
+      <section class="tab-panel" id="panel-prefs" data-panel="prefs" role="tabpanel" aria-labelledby="tab-prefs">
+        <div class="panel-head"><span class="panel-title">Settings</span><span class="panel-sub">Fixed 180 x 32 collapsed</span></div>
+        <div class="card">
+          <div class="setting-row">
+            <div><div class="setting-label">Reduce motion</div><div class="setting-hint">Disable expand and panel animations</div></div>
+            <button class="switch" id="sw-motion" aria-label="Reduce motion" aria-pressed="false"></button>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Accent color</div><div class="setting-hint">Applied instantly, session only</div></div>
+            <div class="swatches" id="swatches">
+              <button class="swatch active" data-color="#0a84ff" style="background:#0a84ff" aria-label="Blue"></button>
+              <button class="swatch" data-color="#bf5af2" style="background:#bf5af2" aria-label="Purple"></button>
+              <button class="swatch" data-color="#30d158" style="background:#30d158" aria-label="Green"></button>
+              <button class="swatch" data-color="#ff9f0a" style="background:#ff9f0a" aria-label="Orange"></button>
+              <button class="swatch" data-color="#ff375f" style="background:#ff375f" aria-label="Pink"></button>
+            </div>
+          </div>
+          <div class="setting-row">
+            <div><div class="setting-label">Notch geometry</div><div class="setting-hint">Collapsed 180 x 32 / expanded 440 x 440</div></div>
+            <span class="badge gray">Fixed</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="gate-title">Connections</div>
+          <div class="setting-row">
+            <div><div class="setting-label">Spotify</div><div class="setting-hint" id="conn-spotify-hint">Not connected</div></div>
+            <span class="badge gray" id="conn-spotify-badge">Off</span>
+          </div>
+          <div class="field-label">Client ID</div>
+          <input class="field" id="spotify-client-id" placeholder="32-character Spotify Client ID" autocomplete="off" spellcheck="false">
+          <div class="conn-actions">
+            <button class="btn small primary" id="spotify-connect-settings">Save and connect</button>
+            <button class="btn small ghost" id="spotify-disconnect-settings">Disconnect</button>
+          </div>
+          <div class="source-note" style="margin-top:6px">Client ID is embedded. Click Connect to authorize Spotify.</div>
+          <div class="divider"></div>
+          <div class="setting-row">
+            <div><div class="setting-label">Notion</div><div class="setting-hint" id="conn-notion-hint">Not connected</div></div>
+            <span class="badge gray" id="conn-notion-badge">Off</span>
+          </div>
+          <div class="field-label">Integration secret</div>
+          <input class="field" id="notion-token" type="password" placeholder="secret_... or ntn_..." autocomplete="off" spellcheck="false">
+          <div class="field-label" style="margin-top:6px">Database ID or URL</div>
+          <input class="field" id="notion-database" placeholder="Paste the database link" autocomplete="off" spellcheck="false">
+          <div class="conn-actions">
+            <button class="btn small primary" id="notion-connect-settings">Connect</button>
+            <button class="btn small ghost" id="notion-disconnect-settings">Disconnect</button>
+          </div>
+          <div class="source-note" style="margin-top:6px">Share the database with your integration. It needs a Date property.</div>
+        </div>
+        <div class="card">
+          <div class="setting-row">
+            <div><div class="setting-label">Launch at login</div><div class="setting-hint" id="auto-launch-hint">Installed app only</div></div>
+            <button class="switch" id="sw-autolaunch" aria-label="Launch at login" aria-pressed="false"></button>
+          </div>
+        </div>
+        <div class="card">
+          <div class="gate-title">Launch gate self-test</div>
+          <div class="gate-result" id="gate-result-settings">Not run.</div>
+          <button class="btn small wide" id="gate-test" style="margin-top:8px">Test notepad.exe through the gate</button>
+        </div>
+        <button class="btn ghost small wide" id="quit-btn">Quit Bloom Notch</button>
+      </section>
+
+      <section class="tab-panel" id="panel-privacy" data-panel="privacy" role="tabpanel" aria-labelledby="tab-privacy">
+        <div class="panel-head"><span class="panel-title">Privacy</span><span class="panel-sub">Zero retention</span></div>
+        <div class="card">
+          <div class="stat-row"><span class="stat-label">Retention state</span><span class="stat-value" id="priv-state">idle</span></div>
+          <div class="stat-row"><span class="stat-label">Video frames stored</span><span class="badge green">Never</span></div>
+          <div class="stat-row"><span class="stat-label">Gesture history stored</span><span class="badge green">Never</span></div>
+          <div class="stat-row"><span class="stat-label">Audio stored</span><span class="badge green">Never</span></div>
+          <div class="stat-row"><span class="stat-label">Disk writes</span><span class="badge green">None</span></div>
+        </div>
+        <div class="card">
+          <div class="gate-title">Data inventory</div>
+          <div id="priv-inventory"></div>
+        </div>
+        <button class="btn small wide" id="priv-clear">Clear transient data now</button>
+        <div class="card halt-card">
+          <div class="halt-title">Emergency halt</div>
+          <div class="halt-note">Hides the notch, stops the pointer loop, cancels the transaction, clears every buffer, and logs a content-free audit entry. Shortcut: Ctrl+Shift+H.</div>
+          <button class="btn danger wide" id="halt-btn">Halt now</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  var $ = function(id){ return document.getElementById(id); };
+  var api = window.electronAPI || null;
+  var notch = $('bloom-notch');
+  var root = document.documentElement;
+  root.classList.add('electron');
+
+  var TAB_ORDER = ['apps','music','shelf','clip','cal','notifs','tools','prefs','privacy'];
+
+  var state = {
+    expanded: false,
+    tab: 'apps',
+    spotifyStatus: { configured: false, connected: false, clientId: '' },
+    spotify: null,
+    notionStatus: { connected: false, databaseId: '', databaseTitle: '' },
+    notionEvents: [],
+    notionFetch: { key: '', at: 0 },
+    notionError: '',
+    autoLaunch: { supported: false, enabled: false },
+    calYear: new Date().getFullYear(),
+    calMonth: new Date().getMonth(),
+    calSelected: new Date().getDate(),
+    tool: 'translate',
+    notes: [],
+    snippets: [],
+    shelf: [],
+    clips: [],
+    notifs: [
+      { id: 1, kind: 'calendar', title: 'Team standup', sub: 'In 15 min - Zoom', time: '9:45 AM' },
+      { id: 2, kind: 'system', title: 'Update available', sub: 'Bloom Notch v1.1', time: 'Yesterday' },
+      { id: 3, kind: 'calendar', title: 'Design review', sub: 'Studio - Tomorrow 3:00 PM', time: '2h ago' }
+    ]
+  };
+
+  var toastTimer = null;
+  function toast(msg){
+    var el = $('toast');
+    if(!el) return;
+    el.textContent = msg;
+    el.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 1900);
+  }
+
+  function invoke(promise){
+    return promise.then(function(res){ return res || {}; }, function(err){
+      return { ok: false, error: (err && err.message) ? err.message : 'Request failed' };
+    });
+  }
+
+  function errText(value){
+    var text = value ? String(value) : 'Something went wrong';
+    return text.length > 120 ? text.slice(0, 117) + '...' : text;
+  }
+
+  function setBusy(button, busy, label){
+    if(!button) return;
+    if(busy){
+      if(!button.getAttribute('data-label')) button.setAttribute('data-label', button.textContent);
+      button.disabled = true;
+      if(label) button.textContent = label;
+    } else {
+      button.disabled = false;
+      var original = button.getAttribute('data-label');
+      if(original) button.textContent = original;
+    }
+  }
+
+  function reportState(){
+    try { if(api && api.setState) api.setState({ expanded: state.expanded }); } catch(e){}
+  }
+
+  var pinned = false;
+  function isFieldFocused(){
+    var a = document.activeElement;
+    return !!(a && a.matches && a.matches('input, textarea, select'));
+  }
+
+  function setExpanded(next){
+    next = !!next;
+    if(state.expanded === next) return;
+    state.expanded = next;
+    notch.classList.toggle('expanded', next);
+    notch.classList.toggle('collapsed', !next);
+    if(next){
+      renderAll();
+      loadIntegrationStatus().then(function(){
+        if(state.tab === 'music') refreshSpotify();
+        if(state.tab === 'cal') fetchNotionEvents(false);
+      });
+    }
+    reportState();
+  }
+
+  function setTab(name){
+    if(TAB_ORDER.indexOf(name) === -1) return;
+    state.tab = name;
+    var tabs = document.querySelectorAll('.tab-btn');
+    for(var i = 0; i < tabs.length; i++){
+      var on = tabs[i].getAttribute('data-tab') === name;
+      tabs[i].classList.toggle('active', on);
+      tabs[i].setAttribute('aria-selected', on ? 'true' : 'false');
+    }
+    var panels = document.querySelectorAll('.tab-panel');
+    for(var j = 0; j < panels.length; j++){
+      panels[j].classList.toggle('active', panels[j].getAttribute('data-panel') === name);
+    }
+    if(name === 'privacy') updatePrivacyUI();
+    if(name === 'music') loadIntegrationStatus().then(refreshSpotify);
+    if(name === 'prefs') loadIntegrationStatus();
+    if(name === 'cal') loadIntegrationStatus().then(function(){ fetchNotionEvents(false); });
+  }
+
+  /* ---------- clock ---------- */
+  function tick(){
+    var now = new Date();
+    var t = now.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+    var d = now.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+    var c1 = $('collapsed-time'); if(c1) c1.textContent = t;
+    var c2 = $('expanded-clock-time'); if(c2) c2.textContent = t;
+    var c3 = $('expanded-clock-date'); if(c3) c3.textContent = d;
+  }
+
+  /* ---------- notifications ---------- */
+  function notifIcon(kind){
+    if(kind === 'system'){
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>';
+    }
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>';
+  }
+
+  function renderNotifs(){
+    var list = $('notif-list');
+    if(!list) return;
+    list.textContent = '';
+    if(!state.notifs.length){
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'No notifications.';
+      list.appendChild(e);
+    }
+    state.notifs.forEach(function(n){
+      var item = document.createElement('div');
+      item.className = 'row-item';
+      var icon = document.createElement('div');
+      icon.className = 'row-icon';
+      icon.innerHTML = notifIcon(n.kind);
+      var body = document.createElement('div');
+      body.className = 'row-body';
+      var title = document.createElement('div');
+      title.className = 'row-title';
+      title.textContent = n.title;
+      var sub = document.createElement('div');
+      sub.className = 'row-sub';
+      sub.textContent = n.sub + ' - ' + n.time;
+      body.appendChild(title);
+      body.appendChild(sub);
+      var actions = document.createElement('div');
+      actions.className = 'row-actions';
+      var del = document.createElement('button');
+      del.className = 'mini-btn danger';
+      del.textContent = 'Dismiss';
+      del.addEventListener('click', function(){
+        state.notifs = state.notifs.filter(function(x){ return x.id !== n.id; });
+        renderNotifs();
+      });
+      actions.appendChild(del);
+      item.appendChild(icon);
+      item.appendChild(body);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+    var label = $('notif-count-label');
+    if(label) label.textContent = state.notifs.length + (state.notifs.length === 1 ? ' item' : ' items');
+    var dot = $('notif-tab-dot');
+    if(dot) dot.style.display = state.notifs.length ? 'block' : 'none';
+  }
+
+  /* ---------- calendar ---------- */
+  function parseNotionDate(value){
+    if(typeof value !== 'string') return null;
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(value);
+    if(!m) return null;
+    if(value.indexOf('T') === -1){
+      return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    }
+    var d = new Date(value);
+    return isNaN(d.getTime()) ? null : d;
+  }
+
+  function notionEventsForMonth(y, m){
+    var monthStart = new Date(y, m, 1, 0, 0, 0, 0);
+    var monthEnd = new Date(y, m + 1, 0, 23, 59, 59, 999);
+    var out = [];
+    (state.notionEvents || []).forEach(function(ev){
+      var start = parseNotionDate(ev.start);
+      if(!start) return;
+      var end = parseNotionDate(ev.end || ev.start) || start;
+      if(ev.allDay) end = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999);
+      if(end < monthStart || start > monthEnd) return;
+
+      var cursor = new Date(Math.max(start.getTime(), monthStart.getTime()));
+      cursor = new Date(cursor.getFullYear(), cursor.getMonth(), cursor.getDate());
+      var last = new Date(Math.min(end.getTime(), monthEnd.getTime()));
+      last = new Date(last.getFullYear(), last.getMonth(), last.getDate());
+      var guard = 0;
+      while(cursor <= last && guard < 62){
+        if(cursor.getFullYear() === y && cursor.getMonth() === m){
+          out.push({
+            day: cursor.getDate(),
+            time: ev.allDay ? 'All day' : start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }),
+            sortKey: ev.allDay ? -1 : start.getHours() * 60 + start.getMinutes(),
+            title: ev.title || 'Untitled',
+            meta: ev.location ? 'Notion - ' + ev.location : 'Notion',
+            url: ev.url || ''
+          });
+        }
+        cursor.setDate(cursor.getDate() + 1);
+        guard++;
+      }
+    });
+    return out;
+  }
+
+  function eventsForMonth(y, m){
+    return notionEventsForMonth(y, m);
+  }
+
+  async function fetchNotionEvents(force){
+    if(!api || !api.integrations || !state.notionStatus.connected) return;
+    var y = state.calYear, m = state.calMonth;
+    var key = y + '-' + m;
+    if(!force && state.notionFetch.key === key && Date.now() - state.notionFetch.at < 120000) return;
+
+    var start = new Date(y, m, 1); start.setDate(start.getDate() - 7);
+    var end = new Date(y, m + 1, 0); end.setDate(end.getDate() + 7);
+
+    try {
+      var res = await invoke(api.integrations.notion.events(start.toISOString(), end.toISOString()));
+      if(res.ok && Array.isArray(res.events)){
+        state.notionEvents = res.events;
+        state.notionFetch = { key: key, at: Date.now() };
+        state.notionError = '';
+        renderCalendar();
+      } else if(res.error){
+        state.notionError = res.error;
+        state.notionFetch = { key: key, at: Date.now() };
+        renderCalendar();
+      }
+    } catch(e){
+      state.notionError = 'Notion unavailable';
+      renderCalendar();
+    }
+  }
+
+  function renderCalendar(){
+    var grid = $('cal-grid');
+    if(!grid) return;
+    var y = state.calYear, m = state.calMonth;
+    var title = $('cal-title');
+    if(title) title.textContent = new Date(y, m, 1).toLocaleDateString([], { month: 'long', year: 'numeric' });
+    var sub = $('cal-sub');
+    if(sub){
+      sub.textContent = state.notionError ? 'Notion unavailable' :
+        (state.notionStatus.connected ? (state.notionStatus.databaseTitle || 'Notion') : 'Local only');
+    }
+
+    var events = eventsForMonth(y, m);
+    var first = new Date(y, m, 1).getDay();
+    var days = new Date(y, m + 1, 0).getDate();
+    var now = new Date();
+    var todayNum = (y === now.getFullYear() && m === now.getMonth()) ? now.getDate() : -1;
+
+    var html = '';
+    ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(function(d){
+      html += '<div class="cal-dow">' + d + '</div>';
+    });
+    for(var i = 0; i < first; i++) html += '<div class="cal-day empty"></div>';
+    for(var d = 1; d <= days; d++){
+      var cls = 'cal-day';
+      if(d === todayNum) cls += ' today';
+      if(d === state.calSelected) cls += ' selected';
+      if(events.some(function(ev){ return ev.day === d; })) cls += ' has-event';
+      html += '<div class="' + cls + '" data-day="' + d + '">' + d + '</div>';
+    }
+    grid.innerHTML = html;
+
+    var cells = grid.querySelectorAll('.cal-day[data-day]');
+    for(var k = 0; k < cells.length; k++){
+      cells[k].addEventListener('click', function(){
+        state.calSelected = Number(this.getAttribute('data-day'));
+        renderCalendar();
+      });
+    }
+
+    var list = $('cal-events');
+    if(!list) return;
+    list.textContent = '';
+    var mine = events.filter(function(ev){ return ev.day === state.calSelected; });
+    mine.sort(function(a, b){ return (a.sortKey || 0) - (b.sortKey || 0); });
+    if(!mine.length){
+      var empty = document.createElement('div');
+      empty.className = 'empty';
+      empty.textContent = state.notionStatus.connected ? 'No events on this day.' : 'Connect Notion in Settings to see events.';
+      list.appendChild(empty);
+      return;
+    }
+    mine.forEach(function(ev){
+      var item = document.createElement('div');
+      item.className = 'event-item';
+      var time = document.createElement('div');
+      time.className = 'event-time';
+      time.textContent = ev.time;
+      var body = document.createElement('div');
+      var t = document.createElement('div');
+      t.className = 'event-title';
+      t.textContent = ev.title;
+      var meta = document.createElement('div');
+      meta.className = 'event-meta';
+      meta.textContent = ev.meta;
+      body.appendChild(t);
+      body.appendChild(meta);
+      item.appendChild(time);
+      item.appendChild(body);
+      list.appendChild(item);
+    });
+  }
+
+  /* ---------- shelf ---------- */
+  function renderShelf(){
+    var list = $('shelf-list');
+    if(!list) return;
+    list.textContent = '';
+    if(!state.shelf.length) return;
+    state.shelf.forEach(function(name, i){
+      var item = document.createElement('div');
+      item.className = 'row-item';
+      var icon = document.createElement('div');
+      icon.className = 'row-icon';
+      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4"/></svg>';
+      var span = document.createElement('span');
+      span.className = 'shelf-name';
+      span.textContent = name;
+      var remove = document.createElement('button');
+      remove.className = 'mini-btn danger';
+      remove.textContent = 'Remove';
+      remove.addEventListener('click', function(){
+        state.shelf.splice(i, 1);
+        renderShelf();
+      });
+      item.appendChild(icon);
+      item.appendChild(span);
+      item.appendChild(remove);
+      list.appendChild(item);
+    });
+  }
+
+  /* ---------- clipboard ---------- */
+  function renderClips(){
+    var list = $('clip-list');
+    if(!list) return;
+    list.textContent = '';
+    if(!state.clips.length){
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'Clipboard history is empty.';
+      list.appendChild(e);
+      return;
+    }
+    state.clips.forEach(function(entry, i){
+      var item = document.createElement('div');
+      item.className = 'row-item';
+      var icon = document.createElement('div');
+      icon.className = 'row-icon';
+      icon.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4V3h6v1"/></svg>';
+      var body = document.createElement('div');
+      body.className = 'row-body';
+      var text = document.createElement('div');
+      text.className = 'row-title';
+      text.textContent = entry.text;
+      var sub = document.createElement('div');
+      sub.className = 'row-sub';
+      sub.textContent = entry.time;
+      body.appendChild(text);
+      body.appendChild(sub);
+      var actions = document.createElement('div');
+      actions.className = 'row-actions';
+      var copy = document.createElement('button');
+      copy.className = 'mini-btn';
+      copy.textContent = 'Copy';
+      copy.addEventListener('click', function(){
+        copyText(entry.text);
+      });
+      var del = document.createElement('button');
+      del.className = 'mini-btn danger';
+      del.textContent = 'Remove';
+      del.addEventListener('click', function(){
+        state.clips.splice(i, 1);
+        renderClips();
+      });
+      actions.appendChild(copy);
+      actions.appendChild(del);
+      item.appendChild(icon);
+      item.appendChild(body);
+      item.appendChild(actions);
+      list.appendChild(item);
+    });
+  }
+
+  function copyText(text){
+    try {
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(function(){ toast('Copied'); }, function(){ toast('Copy blocked'); });
+        return;
+      }
+    } catch(e){}
+    toast('Copy blocked');
+  }
+
+  /* ---------- notes ---------- */
+  function renderNotes(){
+    var list = $('notes-list');
+    if(!list) return;
+    list.textContent = '';
+    if(!state.notes.length){
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'No notes yet. Session only.';
+      list.appendChild(e);
+      return;
+    }
+    state.notes.forEach(function(note, i){
+      var item = document.createElement('div');
+      item.className = 'note-item';
+      var text = document.createElement('div');
+      text.className = 'note-text';
+      text.textContent = note;
+      var foot = document.createElement('div');
+      foot.className = 'note-foot';
+      var del = document.createElement('button');
+      del.className = 'mini-btn danger';
+      del.textContent = 'Delete';
+      del.addEventListener('click', function(){
+        state.notes.splice(i, 1);
+        renderNotes();
+      });
+      foot.appendChild(del);
+      item.appendChild(text);
+      item.appendChild(foot);
+      list.appendChild(item);
+    });
+  }
+
+  /* ---------- music + connections ---------- */
+  var PLAY_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
+  var PAUSE_SVG = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5h3v14H8zM13 5h3v14h-3z"/></svg>';
+
+  var spotifyBusy = false;
+  var spotifyConnecting = false;
+  var notionConnecting = false;
+
+  function renderMusic(){
+    var p = state.spotify;
+    var connected = !!(state.spotifyStatus && state.spotifyStatus.connected);
+    var playing = !!(p && p.active && p.playing);
+
+    var btn = $('sp-play');
+    if(btn){
+      btn.innerHTML = playing ? PAUSE_SVG : PLAY_SVG;
+      btn.setAttribute('aria-label', playing ? 'Pause' : 'Play');
+    }
+    var title = $('sp-title'), artist = $('sp-artist'), fill = $('sp-progress');
+    if(title) title.textContent = p && p.active ? (p.title || 'Unknown track') : (connected ? 'Nothing playing' : 'Not playing');
+    if(artist) artist.textContent = p && p.active ? (p.artists || 'Spotify') : (connected ? 'Spotify connected' : 'Connect Spotify');
+    if(fill){
+      var pct = 0;
+      if(p && p.duration > 0) pct = Math.max(0, Math.min(100, (p.progress / p.duration) * 100));
+      fill.style.width = pct + '%';
+    }
+
+    var c = $('sp-connect'), d = $('sp-disconnect');
+    if(c) c.style.display = connected ? 'none' : 'inline-flex';
+    if(d) d.style.display = connected ? 'inline-flex' : 'none';
+
+    var src = $('sp-source');
+    if(src){
+      if(!connected){
+        src.textContent = state.spotifyStatus && state.spotifyStatus.configured ? 'Ready to connect.' : 'Add your Client ID in Settings.';
+      } else if(p && p.active){
+        src.textContent = (p.playing ? 'Playing on ' : 'Paused on ') + (p.device || 'Spotify');
+      } else {
+        src.textContent = 'Spotify connected. Start a track anywhere.';
+      }
+    }
+  }
+
+  function updateConnectionUI(){
+    var s = state.spotifyStatus || {};
+    var sBadge = $('conn-spotify-badge'), sHint = $('conn-spotify-hint');
+    if(sBadge){
+      sBadge.textContent = s.connected ? 'On' : 'Off';
+      sBadge.className = 'badge ' + (s.connected ? 'green' : 'gray');
+    }
+    if(sHint) sHint.textContent = s.connected ? 'Connected' : (s.configured ? 'Client ID saved. Connect when ready.' : 'Not connected');
+
+    var n = state.notionStatus || {};
+    var nBadge = $('conn-notion-badge'), nHint = $('conn-notion-hint');
+    if(nBadge){
+      nBadge.textContent = n.connected ? 'On' : 'Off';
+      nBadge.className = 'badge ' + (n.connected ? 'green' : 'gray');
+    }
+    if(nHint) nHint.textContent = n.connected ? (n.databaseTitle || 'Connected') : 'Not connected';
+
+    var sw = $('sw-autolaunch');
+    if(sw){
+      var supported = !!(state.autoLaunch && state.autoLaunch.supported);
+      var on = supported && state.autoLaunch.enabled === true;
+      sw.classList.toggle('on', on);
+      sw.setAttribute('aria-pressed', on ? 'true' : 'false');
+      sw.disabled = !supported;
+      sw.style.opacity = supported ? '1' : '.45';
+      var hint = $('auto-launch-hint');
+      if(hint) hint.textContent = supported ? (on ? 'On' : 'Off') : 'Available in the installed app';
+    }
+  }
+
+  async function loadIntegrationStatus(){
+    if(!api || !api.integrations) return;
+    var res = await invoke(api.integrations.status());
+    if(!res.ok) return;
+    state.spotifyStatus = res.spotify || state.spotifyStatus;
+    state.notionStatus = res.notion || state.notionStatus;
+    state.autoLaunch = res.autoLaunch || state.autoLaunch;
+    if(!state.notionStatus.connected) state.notionError = '';
+
+    var input = $('spotify-client-id');
+    if(input && document.activeElement !== input) input.value = state.spotifyStatus.clientId || '';
+    var db = $('notion-database');
+    if(db && document.activeElement !== db) db.value = state.notionStatus.databaseId || '';
+
+    updateConnectionUI();
+    renderMusic();
+  }
+
+  function advanceProgress(){
+    var p = state.spotify;
+    if(!p || !p.active || !p.playing || !p.duration) return;
+    p.progress = Math.min(p.duration, p.progress + 1000);
+    var fill = $('sp-progress');
+    if(fill) fill.style.width = Math.max(0, Math.min(100, (p.progress / p.duration) * 100)) + '%';
+  }
+
+  async function refreshSpotify(){
+    if(!api || !api.integrations || spotifyBusy) return;
+    if(!state.spotifyStatus.connected){ renderMusic(); return; }
+    spotifyBusy = true;
+    try {
+      var res = await invoke(api.integrations.spotify.nowPlaying());
+      if(res.ok && res.playback){
+        state.spotify = res.playback;
+        renderMusic();
+      } else if(res.code === 'NOT_CONNECTED'){
+        state.spotifyStatus.connected = false;
+        state.spotify = null;
+        updateConnectionUI();
+        renderMusic();
+      } else if(res.error){
+        var src = $('sp-source');
+        if(src) src.textContent = errText(res.error);
+      }
+    } finally {
+      spotifyBusy = false;
+    }
+  }
+
+  async function connectSpotify(){
+    if(spotifyConnecting) return;
+    if(!api || !api.integrations){ toast('Integration bridge unavailable'); return; }
+
+    var input = $('spotify-client-id');
+    var clientId = (input && input.value.trim()) || (state.spotifyStatus && state.spotifyStatus.clientId) || '';
+    if(!clientId){
+      setTab('prefs');
+      if(input) input.focus();
+      toast('Paste your Spotify Client ID first');
+      return;
+    }
+
+    spotifyConnecting = true;
+    var musicBtn = $('sp-connect'), settingsBtn = $('spotify-connect-settings');
+    setBusy(musicBtn, true, 'Waiting...');
+    setBusy(settingsBtn, true, 'Waiting for browser...');
+    try {
+      var res = await invoke(api.integrations.spotify.connect(clientId));
+      if(res.ok){
+        state.spotifyStatus = res.status || state.spotifyStatus;
+        updateConnectionUI();
+        renderMusic();
+        toast('Spotify connected');
+        await refreshSpotify();
+      } else {
+        toast(errText(res.error || 'Spotify connection failed'));
+      }
+    } finally {
+      spotifyConnecting = false;
+      setBusy(musicBtn, false);
+      setBusy(settingsBtn, false);
+    }
+  }
+
+  async function disconnectSpotify(){
+    if(!api || !api.integrations) return;
+    var res = await invoke(api.integrations.spotify.disconnect());
+    if(res.ok){
+      state.spotifyStatus = res.status || { configured: false, connected: false, clientId: '' };
+      state.spotify = null;
+      updateConnectionUI();
+      renderMusic();
+      toast('Spotify disconnected');
+    } else {
+      toast(errText(res.error || 'Could not disconnect'));
+    }
+  }
+
+  async function spotifyControl(action){
+    if(!state.spotifyStatus.connected){ toast('Connect Spotify first'); return; }
+    var deviceId = state.spotify && state.spotify.deviceId ? state.spotify.deviceId : '';
+    var res = await invoke(api.integrations.spotify.control(action, deviceId));
+    if(!res.ok){ toast(errText(res.error || 'Spotify action failed')); return; }
+    if(state.spotify){
+      if(action === 'play') state.spotify.playing = true;
+      if(action === 'pause') state.spotify.playing = false;
+    }
+    renderMusic();
+    setTimeout(refreshSpotify, 500);
+  }
+
+  async function connectNotion(){
+    if(notionConnecting) return;
+    if(!api || !api.integrations){ toast('Integration bridge unavailable'); return; }
+
+    var tokenEl = $('notion-token'), dbEl = $('notion-database');
+    var token = tokenEl ? tokenEl.value.trim() : '';
+    var databaseId = dbEl ? dbEl.value.trim() : '';
+    if(!token){ toast('Paste your Notion integration secret'); if(tokenEl) tokenEl.focus(); return; }
+    if(!databaseId){ toast('Paste the database ID or URL'); if(dbEl) dbEl.focus(); return; }
+
+    notionConnecting = true;
+    var btn = $('notion-connect-settings');
+    setBusy(btn, true, 'Connecting...');
+    try {
+      var res = await invoke(api.integrations.notion.connect(token, databaseId));
+      if(res.ok){
+        state.notionStatus = res.status || state.notionStatus;
+        state.notionError = '';
+        state.notionFetch = { key: '', at: 0 };
+        state.notionEvents = [];
+        if(tokenEl) tokenEl.value = '';
+        if(dbEl) dbEl.value = state.notionStatus.databaseId || '';
+        updateConnectionUI();
+        toast('Notion connected');
+        await fetchNotionEvents(true);
+      } else {
+        toast(errText(res.error || 'Notion connection failed'));
+      }
+    } finally {
+      notionConnecting = false;
+      setBusy(btn, false);
+    }
+  }
+
+  async function disconnectNotion(){
+    if(!api || !api.integrations) return;
+    var res = await invoke(api.integrations.notion.disconnect());
+    if(res.ok){
+      state.notionStatus = res.status || { connected: false };
+      state.notionEvents = [];
+      state.notionError = '';
+      state.notionFetch = { key: '', at: 0 };
+      updateConnectionUI();
+      renderCalendar();
+      toast('Notion disconnected');
+    } else {
+      toast(errText(res.error || 'Could not disconnect'));
+    }
+  }
+
+  /* ---------- privacy ---------- */
+  async function updatePrivacyUI(){
+    var s = $('priv-state');
+    if(s){
+      var st = 'idle';
+      try { if(api && api.getRetentionState) st = await api.getRetentionState(); } catch(e){}
+      s.textContent = st;
+    }
+    var inv = $('priv-inventory');
+    if(!inv) return;
+    inv.textContent = '';
+    var flows = [];
+    try { if(api && api.getDataInventory) flows = (await api.getDataInventory()) || []; } catch(e){}
+    if(!flows.length){
+      var e = document.createElement('div');
+      e.className = 'empty';
+      e.textContent = 'No data flows registered.';
+      inv.appendChild(e);
+      return;
+    }
+    flows.forEach(function(f){
+      var row = document.createElement('div');
+      row.className = 'data-flow';
+      var name = document.createElement('span');
+      name.className = 'data-name';
+      name.textContent = String(f.name || 'unknown').replace(/_/g, ' ');
+      var badge = document.createElement('span');
+      badge.className = 'badge ' + (f.persistent ? 'gray' : 'green');
+      badge.textContent = f.persistent ? 'persistent' : 'never';
+      row.appendChild(name);
+      row.appendChild(badge);
+      inv.appendChild(row);
+    });
+  }
+  window.updatePrivacyUI = updatePrivacyUI;
+
+  /* ---------- gate ---------- */
+  async function runGate(exe){
+    var result;
+    if(!api || !api.handleSignal){
+      result = { success: false, stage: 'UNAVAILABLE', reason: 'Preload bridge not connected' };
+    } else {
+      try {
+        result = await api.handleSignal({ action: 'launch_app', executable: exe, arguments: [] });
+      } catch(e){
+        result = { success: false, stage: 'ERROR', reason: e.message };
+      }
+    }
+    if(!result || typeof result !== 'object'){
+      result = { success: false, stage: 'ERROR', reason: 'Empty gate response' };
+    }
+    var line = (result.success ? 'ALLOWED' : 'BLOCKED') + ' at ' + (result.stage || 'UNKNOWN') + ' - ' + (result.reason || 'ok');
+    var a = $('gate-result');
+    if(a){ a.textContent = line; a.className = 'gate-result ' + (result.success ? 'ok' : 'deny'); }
+    var b = $('gate-result-settings');
+    if(b){ b.textContent = line; b.className = 'gate-result ' + (result.success ? 'ok' : 'deny'); }
+    toast(line);
+  }
+
+  /* ---------- teleprompter ---------- */
+  var teleTimer = null;
+  var teleOffset = 0;
+
+  function stopTele(){
+    if(teleTimer){ clearInterval(teleTimer); teleTimer = null; }
+    var start = $('tele-start'), stop = $('tele-stop');
+    if(start) start.disabled = false;
+    if(stop) stop.disabled = true;
+  }
+
+  function startTele(){
+    stopTele();
+    var box = document.querySelector('.tele-view');
+    var inner = $('tele-inner');
+    var speedEl = $('tele-speed');
+    if(!box || !inner || !speedEl) return;
+    inner.textContent = ($('tele-text') && $('tele-text').value) || 'Type a script first.';
+    teleOffset = 0;
+    inner.style.transform = 'translateY(0)';
+    var speed = Number(speedEl.value) || 40;
+    teleTimer = setInterval(function(){
+      var max = Math.max(0, inner.scrollHeight - box.clientHeight);
+      teleOffset += Math.max(1, speed / 20);
+      if(teleOffset > max) teleOffset = 0;
+      inner.style.transform = 'translateY(-' + teleOffset.toFixed(1) + 'px)';
+    }, 50);
+    var start = $('tele-start'), stop = $('tele-stop');
+    if(start) start.disabled = true;
+    if(stop) stop.disabled = false;
+  }
+
+  /* ---------- currency ---------- */
+  var RATES = { USD: 1, EUR: 0.92, GBP: 0.79, JPY: 156.4 };
+
+  function convert(){
+    var amount = parseFloat($('cur-amount').value);
+    if(isNaN(amount)) amount = 0;
+    var from = $('cur-from').value;
+    var to = $('cur-to').value;
+    var value = amount / RATES[from] * RATES[to];
+    var out = $('cur-out');
+    if(out) out.textContent = value.toFixed(2) + ' ' + to;
+  }
+
+  /* ---------- translate ---------- */
+  var DICT = {
+    es: { hello: 'hola', 'thank you': 'gracias', 'good morning': 'buenos dias', goodbye: 'adios' },
+    fr: { hello: 'bonjour', 'thank you': 'merci', 'good morning': 'bonjour', goodbye: 'au revoir' },
+    de: { hello: 'hallo', 'thank you': 'danke', 'good morning': 'guten morgen', goodbye: 'auf wiedersehen' },
+    ja: { hello: 'konnichiwa', 'thank you': 'arigatou', 'good morning': 'ohayou gozaimasu', goodbye: 'sayounara' }
+  };
+
+  function translate(){
+    var src = ($('translate-src').value || '').trim();
+    var lang = $('translate-lang').value;
+    var out = $('translate-dst');
+    if(!out) return;
+    if(!src){ out.textContent = 'Type a phrase first.'; return; }
+    var key = src.toLowerCase();
+    var hit = DICT[lang] && DICT[lang][key];
+    out.textContent = hit ? hit : '[offline demo] ' + src + ' (' + lang + ')';
+    toast('Translated offline');
+  }
+
+  /* ---------- settings ---------- */
+  function hexToRgba(hex, alpha){
+    var n = parseInt(hex.replace('#', ''), 16);
+    return 'rgba(' + ((n >> 16) & 255) + ',' + ((n >> 8) & 255) + ',' + (n & 255) + ',' + alpha + ')';
+  }
+
+  function setAccent(hex){
+    root.style.setProperty('--accent', hex);
+    root.style.setProperty('--accent-soft', hexToRgba(hex, 0.16));
+    var sw = document.querySelectorAll('.swatch');
+    for(var i = 0; i < sw.length; i++){
+      sw[i].classList.toggle('active', sw[i].getAttribute('data-color') === hex);
+    }
+  }
+
+  /* ---------- clear / halt ---------- */
+  function clearTransient(silent){
+    state.shelf.length = 0;
+    state.clips.length = 0;
+    state.notes.length = 0;
+    renderShelf();
+    renderClips();
+    renderNotes();
+    try {
+      if(api && api.clearTransientData){
+        var p = api.clearTransientData();
+        if(p && p.catch) p.catch(function(){});
+      }
+    } catch(e){}
+    if(!silent) toast('Transient data cleared');
+  }
+
+  function halt(){
+    try { if(api && api.emergencyStop) api.emergencyStop(); } catch(e){}
+    toast('HALT sent');
+  }
+
+  /* ---------- render all ---------- */
+  function renderAll(){
+    tick();
+    renderNotifs();
+    renderCalendar();
+    renderShelf();
+    renderClips();
+    renderNotes();
+    renderMusic();
+    convert();
+  }
+
+  /* ---------- wire up ---------- */
+  function wire(){
+    $('collapse-btn').addEventListener('click', function(e){ e.stopPropagation(); setExpanded(false); });
+
+    var tabs = document.querySelectorAll('.tab-btn');
+    for(var i = 0; i < tabs.length; i++){
+      tabs[i].addEventListener('click', function(){ setTab(this.getAttribute('data-tab')); });
+    }
+
+    var tiles = document.querySelectorAll('.app-tile');
+    for(var t = 0; t < tiles.length; t++){
+      tiles[t].addEventListener('click', function(){ runGate(this.getAttribute('data-exe')); });
+    }
+
+    $('sp-connect').addEventListener('click', function(){
+      if(!state.spotifyStatus.configured){
+        setTab('prefs');
+        var input = $('spotify-client-id');
+        if(input) input.focus();
+        toast('Add your Spotify Client ID in Settings');
+        return;
+      }
+      connectSpotify();
+    });
+    $('sp-disconnect').addEventListener('click', disconnectSpotify);
+    $('sp-play').addEventListener('click', function(){
+      spotifyControl(state.spotify && state.spotify.playing ? 'pause' : 'play');
+    });
+    $('sp-prev').addEventListener('click', function(){ spotifyControl('previous'); });
+    $('sp-next').addEventListener('click', function(){ spotifyControl('next'); });
+
+    $('spotify-connect-settings').addEventListener('click', connectSpotify);
+    $('spotify-disconnect-settings').addEventListener('click', disconnectSpotify);
+    $('notion-connect-settings').addEventListener('click', connectNotion);
+    $('notion-disconnect-settings').addEventListener('click', disconnectNotion);
+    $('spotify-client-id').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); connectSpotify(); } });
+    $('notion-database').addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); connectNotion(); } });
+    $('sw-autolaunch').addEventListener('click', async function(){
+      if(!api || !api.autoLaunch) return;
+      if(!state.autoLaunch.supported){ toast('Launch at login is available in the installed app'); return; }
+      var next = !state.autoLaunch.enabled;
+      var res = await invoke(api.autoLaunch.set(next));
+      if(res.ok){
+        state.autoLaunch = { supported: true, enabled: res.enabled === true };
+        updateConnectionUI();
+        toast(res.enabled ? 'Launch at login on' : 'Launch at login off');
+      } else {
+        toast(errText(res.error || 'Could not change login setting'));
+      }
+    });
+
+    var drop = $('shelf-drop');
+    drop.addEventListener('dragover', function(e){ e.preventDefault(); drop.classList.add('drag-over'); });
+    drop.addEventListener('dragleave', function(){ drop.classList.remove('drag-over'); });
+    drop.addEventListener('drop', function(e){
+      e.preventDefault();
+      drop.classList.remove('drag-over');
+      var files = e.dataTransfer && e.dataTransfer.files ? e.dataTransfer.files : [];
+      for(var f = 0; f < files.length; f++){
+        if(state.shelf.indexOf(files[f].name) === -1) state.shelf.push(files[f].name);
+      }
+      renderShelf();
+      toast(files.length ? 'Added file names only' : 'Nothing dropped');
+    });
+    $('shelf-clear').addEventListener('click', function(){ state.shelf.length = 0; renderShelf(); });
+
+    $('clip-read').addEventListener('click', function(){
+      try {
+        if(navigator.clipboard && navigator.clipboard.readText){
+          navigator.clipboard.readText().then(function(text){
+            if(!text){ toast('Clipboard empty'); return; }
+            state.clips.unshift({ text: text.slice(0, 500), time: 'just now' });
+            if(state.clips.length > 8) state.clips.length = 8;
+            renderClips();
+            toast('Added from clipboard');
+          }, function(){ toast('Clipboard read blocked'); });
+          return;
+        }
+      } catch(e){}
+      toast('Clipboard read blocked');
+    });
+    $('clip-clear').addEventListener('click', function(){ state.clips.length = 0; renderClips(); });
+
+    $('cal-prev').addEventListener('click', function(){
+      state.calMonth--;
+      if(state.calMonth < 0){ state.calMonth = 11; state.calYear--; }
+      state.calSelected = 1;
+      renderCalendar();
+      fetchNotionEvents(false);
+    });
+    $('cal-next').addEventListener('click', function(){
+      state.calMonth++;
+      if(state.calMonth > 11){ state.calMonth = 0; state.calYear++; }
+      state.calSelected = 1;
+      renderCalendar();
+      fetchNotionEvents(false);
+    });
+
+    $('notif-clear').addEventListener('click', function(){ state.notifs = []; renderNotifs(); toast('Notifications cleared'); });
+
+    var segs = document.querySelectorAll('.seg-btn');
+    for(var s = 0; s < segs.length; s++){
+      segs[s].addEventListener('click', function(){
+        var tool = this.getAttribute('data-tool');
+        state.tool = tool;
+        var all = document.querySelectorAll('.seg-btn');
+        for(var a = 0; a < all.length; a++) all[a].classList.toggle('active', all[a] === this);
+        var panes = document.querySelectorAll('.tool-pane');
+        for(var p = 0; p < panes.length; p++) panes[p].classList.toggle('active', panes[p].getAttribute('data-tool-pane') === tool);
+      });
+    }
+
+    $('translate-go').addEventListener('click', translate);
+    $('translate-src').addEventListener('keydown', function(e){ if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); translate(); } });
+
+    $('cur-amount').addEventListener('input', convert);
+    $('cur-from').addEventListener('change', convert);
+    $('cur-to').addEventListener('change', convert);
+
+    $('tele-speed').addEventListener('input', function(){ $('tele-speed-label').textContent = this.value; });
+    $('tele-start').addEventListener('click', startTele);
+    $('tele-stop').addEventListener('click', stopTele);
+
+    $('note-add').addEventListener('click', function(){
+      var input = $('note-input');
+      var text = input.value.trim();
+      if(!text){ toast('Write a note first'); return; }
+      state.notes.unshift(text);
+      input.value = '';
+      renderNotes();
+      toast('Note added');
+    });
+
+    $('sw-motion').addEventListener('click', function(){
+      var on = !root.classList.contains('reduce-motion');
+      root.classList.toggle('reduce-motion', on);
+      this.classList.toggle('on', on);
+      this.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+
+    var sw = document.querySelectorAll('.swatch');
+    for(var w = 0; w < sw.length; w++){
+      sw[w].addEventListener('click', function(){ setAccent(this.getAttribute('data-color')); });
+    }
+
+    $('gate-test').addEventListener('click', function(){ runGate('notepad.exe'); });
+    $('quit-btn').addEventListener('click', function(){ try { if(api && api.quit) api.quit(); } catch(e){} });
+
+    $('priv-clear').addEventListener('click', function(){ clearTransient(false); updatePrivacyUI(); });
+    $('halt-btn').addEventListener('click', halt);
+
+    notch.addEventListener('click', function(){ if(!state.expanded) setExpanded(true); });
+
+    document.addEventListener('focusin', function(e){ if(e.target.matches('input, textarea, select')) pinned = true; });
+    document.addEventListener('focusout', function(e){
+      if(!e.target.matches('input, textarea, select')) return;
+      setTimeout(function(){ pinned = isFieldFocused(); }, 0);
+    });
+
+    document.addEventListener('keydown', function(e){
+      if(e.key === 'Escape' && state.expanded){ setExpanded(false); return; }
+      if((e.ctrlKey || e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'h'){ e.preventDefault(); halt(); return; }
+      if((e.ctrlKey || e.metaKey) && /^[1-9]$/.test(e.key)){
+        e.preventDefault();
+        setTab(TAB_ORDER[Number(e.key) - 1]);
+      }
+    });
+
+    if(api && api.onPointer){
+      api.onPointer(function(inside){
+        if(inside) setExpanded(true);
+        else if(!pinned) setExpanded(false);
+      });
+    }
+
+    window.addEventListener('beforeunload', function(){
+      clearTransient(true);
+      stopTele();
+    });
+  }
+
+  tick();
+  setInterval(tick, 1000);
+  setInterval(advanceProgress, 1000);
+  setInterval(function(){
+    if(state.expanded && state.tab === 'music' && state.spotifyStatus.connected) refreshSpotify();
+  }, 5000);
+  renderAll();
+  wire();
+  updatePrivacyUI();
+  reportState();
+  loadIntegrationStatus().then(function(){
+    if(state.spotifyStatus.connected) refreshSpotify();
+  });
+})();
+</script>
+</body>
+</html>
