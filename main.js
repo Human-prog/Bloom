@@ -252,8 +252,14 @@ else {
   });
 }
 
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
-app.on('before-quit', stopPointerWatch);
+app.on('window-all-closed', () => {
+  try { require('./debug-halt').log('QUIT', 'window-all-closed event; platform=' + process.platform); } catch (e) {}
+  if (process.platform !== 'darwin') app.quit();
+});
+app.on('before-quit', () => {
+  try { require('./debug-halt').log('QUIT', 'before-quit event'); } catch (e) {}
+  stopPointerWatch();
+});
 
 ipcMain.on('notch-state', (event, state) => {
   if (!security.rateLimiter.allow(event.sender.id)) { security.audit('throttle', 'notch-state'); return; }
@@ -326,19 +332,36 @@ ipcMain.handle('signal-handle', (event, payload) => {
 
 // EMERGENCY HALT: if user says stop, kill everything immediately
 ipcMain.on('emergency-stop', (event) => {
-  if (!security.rateLimiter.allow(event.sender.id)) return;
+  try {
+    const dbg = require('./debug-halt');
+    dbg.log('STOP', 'emergency-stop received from sender=' + (event && event.sender ? event.sender.id : 'unknown'));
+  } catch (e) {}
+  if (!security.rateLimiter.allow(event.sender.id)) {
+    try { require('./debug-halt').log('STOP', 'RATE-LIMITED: halt rejected'); } catch (e) {}
+    return;
+  }
   security.audit('emergency', 'halt-requested');
   try {
-    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    // Close every BrowserWindow, not just mainWindow
-    for (const win of BrowserWindow.getAllWindows()) {
+    const dbg = require('./debug-halt');
+    dbg.log('STOP', 'pollTimer=' + (pollTimer ? 'set' : 'null'));
+    if (pollTimer) { clearInterval(pollTimer); pollTimer = null; dbg.log('STOP', 'pollTimer cleared'); }
+    const windows = BrowserWindow.getAllWindows();
+    dbg.log('STOP', 'BrowserWindow count=' + windows.length);
+    for (const win of windows) {
+      dbg.log('STOP', 'closing window isDestroyed=' + win.isDestroyed() + ' id=' + (win.id || 'n/a'));
       if (!win.isDestroyed()) win.close();
     }
     mainWindow = null;
+    dbg.log('STOP', 'mainWindow nulled');
     require('./privacy/retention-manager.js').retentionManager.triggerEmergencyStop();
+    dbg.log('STOP', 'retention manager emergency stop triggered');
+    dbg.log('STOP', 'calling app.exit(0)');
     app.exit(0); // immediate hard exit, no async wait
-  } catch (e) { /* best effort halt */ }
+  } catch (e) {
+    try { require('./debug-halt').log('STOP', 'ERROR in halt: ' + (e && e.message ? e.message.substring(0, 200) : String(e))); } catch (e2) {}
+  }
   try { process.exit(0); } catch (e) {}
+  try { require('./debug-halt').log('STOP', 'process.exit(0) executed'); } catch (e) {}
 });
 
 // ---- integrations (main-process only) ----
