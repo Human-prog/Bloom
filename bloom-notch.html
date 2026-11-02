@@ -304,6 +304,7 @@ textarea.field{min-height:64px;line-height:1.45}
         <div class="card">
           <div class="gate-title">GhostControl launch gate</div>
           <div class="gate-result" id="gate-result">No launch attempted.</div>
+          <button class="btn small wide" id="gate-confirm" style="margin-top:6px;display:none">Confirm Launch</button>
           <div class="gate-note">Validation - Permission - Action gate - Execution - Cleanup. Launch requests stay denied until an explicit approval flow is wired. Only whitelisted executables can ever pass.</div>
         </div>
       </section>
@@ -377,7 +378,8 @@ textarea.field{min-height:64px;line-height:1.45}
         <div class="segmented" id="tool-seg">
           <button class="seg-btn active" data-tool="translate">Translate</button>
           <button class="seg-btn" data-tool="currency">Currency</button>
-          <button class="seg-btn" data-tool="tele">Teleprompter</button>
+          <button class="seg-btn" data-tool="debug">Debug</button>
+        <button class="seg-btn" data-tool="tele">Teleprompter</button>
           <button class="seg-btn" data-tool="notes">Notes</button>
         </div>
 
@@ -425,6 +427,16 @@ textarea.field{min-height:64px;line-height:1.45}
           <button class="btn small primary" id="note-add">Add note</button>
           <div class="list" id="notes-list"></div>
           <div class="source-note">Session memory only. Never persisted.</div>
+        </div>
+
+        <div class="tool-pane" data-tool-pane="debug">
+          <div class="panel-head"><span class="panel-title">Debug / Halt</span><span class="panel-sub">Read log · Force exit</span></div>
+          <div style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:8px;white-space:pre-wrap;word-break:break-word;min-height:140px;max-height:200px;overflow-y:auto" id="debug-log">No log yet. Run the app and trigger Halt to write debug-halt.log.</div>
+          <div style="display:flex;gap:6px;margin-top:6px">
+            <button class="btn small" id="debug-read">Read debug-halt.log</button>
+            <button class="btn small ghost" id="debug-force">Force Halt (exit 1)</button>
+          </div>
+          <div class="source-note" id="debug-status">Status: idle — log writes to AppData\Roaming\Bloom Notch\debug-halt.log</div>
         </div>
       </section>
 
@@ -1245,26 +1257,39 @@ textarea.field{min-height:64px;line-height:1.45}
   window.updatePrivacyUI = updatePrivacyUI;
 
   /* ---------- gate ---------- */
+  var pendingLaunch = null;
+
   async function runGate(exe){
     var result;
-    if(!api || !api.handleSignal){
+    if(!api || !api.launcher){
       result = { success: false, stage: 'UNAVAILABLE', reason: 'Preload bridge not connected' };
     } else {
       try {
-        result = await api.handleSignal({ action: 'launch_app', executable: exe, arguments: [] });
+        result = await api.launcher.openApp(exe);
       } catch(e){
-        result = { success: false, stage: 'ERROR', reason: e.message };
+        result = { ok: false, error: e.message, requiresConfirmation: false };
       }
     }
-    if(!result || typeof result !== 'object'){
-      result = { success: false, stage: 'ERROR', reason: 'Empty gate response' };
-    }
-    var line = (result.success ? 'ALLOWED' : 'BLOCKED') + ' at ' + (result.stage || 'UNKNOWN') + ' - ' + (result.reason || 'ok');
     var a = $('gate-result');
-    if(a){ a.textContent = line; a.className = 'gate-result ' + (result.success ? 'ok' : 'deny'); }
+    var confirmBtn = $('gate-confirm');
+    if(result && result.requiresConfirmation){
+      pendingLaunch = exe;
+      if(a){ a.textContent = 'BLOCKED at PERMISSION - Launch requires explicit user confirmation: ' + exe; a.className = 'gate-result deny'; }
+      if(confirmBtn){ confirmBtn.style.display = 'inline-flex'; confirmBtn.textContent = 'Confirm Launch: ' + exe; }
+      toast('Launch blocked - click Confirm to open ' + exe);
+    } else if(result && result.ok){
+      pendingLaunch = null;
+      if(a){ a.textContent = 'ALLOWED - Launching ' + exe; a.className = 'gate-result ok'; }
+      if(confirmBtn){ confirmBtn.style.display = 'none'; }
+      toast('Launched ' + exe);
+    } else {
+      pendingLaunch = null;
+      if(a){ a.textContent = 'BLOCKED - ' + (result && result.error ? result.error : 'unknown'); a.className = 'gate-result deny'; }
+      if(confirmBtn){ confirmBtn.style.display = 'none'; }
+      toast('Launch failed: ' + (result && result.error ? result.error : 'unknown'));
+    }
     var b = $('gate-result-settings');
-    if(b){ b.textContent = line; b.className = 'gate-result ' + (result.success ? 'ok' : 'deny'); }
-    toast(line);
+    if(b){ b.textContent = (a && a.textContent) || ''; b.className = (a && a.className) || 'gate-result deny'; }
   }
 
   /* ---------- teleprompter ---------- */
@@ -1527,10 +1552,54 @@ textarea.field{min-height:64px;line-height:1.45}
     }
 
     $('gate-test').addEventListener('click', function(){ runGate('notepad.exe'); });
+    var gateConfirm = $('gate-confirm');
+    if(gateConfirm){
+      gateConfirm.addEventListener('click', function(){
+        if(pendingLaunch){
+          if(!api || !api.launcher){ toast('No launcher API.'); return; }
+          invoke(api.launcher.confirmLaunch(pendingLaunch)).then(function(res){
+            pendingLaunch = null;
+            gateConfirm.style.display = 'none';
+            if(res && res.ok){ toast('Launched ' + res.opened); var a=$('gate-result'); if(a){a.textContent='ALLOWED - Launched '+res.opened; a.className='gate-result ok';} }
+            else { toast('Launch failed: '+(res && res.error ? res.error:'unknown')); var a=$('gate-result'); if(a){a.textContent='BLOCKED - '+(res && res.error ? res.error:'unknown'); a.className='gate-result deny';} }
+          });
+        }
+      });
+    }
     $('quit-btn').addEventListener('click', function(){ try { if(api && api.quit) api.quit(); } catch(e){} });
 
     $('priv-clear').addEventListener('click', function(){ clearTransient(false); updatePrivacyUI(); });
     $('halt-btn').addEventListener('click', halt);
+
+    var dbgRead = $('debug-read');
+    if(dbgRead) dbgRead.addEventListener('click', function(){
+      if(!api || !api.debug) { $('debug-status').textContent = 'No debug API available.'; return; }
+      invoke(api.debug.readLog()).then(function(res){
+        var logEl = $('debug-log');
+        if(logEl) {
+          if(res.ok && res.content) {
+            logEl.textContent = res.content.slice(-3000); // last 3KB
+            $('debug-status').textContent = 'Log read OK — ' + (res.size || '?') + ' bytes @ ' + (res.path || 'unknown');
+          } else {
+            logEl.textContent = 'Log read failed: ' + (res.error || 'unknown');
+            $('debug-status').textContent = 'Error reading log.';
+          }
+        }
+      });
+    });
+    var dbgForce = $('debug-force');
+    if(dbgForce) dbgForce.addEventListener('click', function(){
+      $('debug-status').textContent = 'Force halt triggered — checking log...';
+      halt();
+      setTimeout(function(){
+        if(api && api.debug){
+          invoke(api.debug.readLog()).then(function(res){
+            var logEl = $('debug-log');
+            if(logEl && res.ok && res.content) logEl.textContent = res.content.slice(-2000);
+          });
+        }
+      }, 800);
+    });
 
     notch.addEventListener('click', function(){ if(!state.expanded) setExpanded(true); });
 

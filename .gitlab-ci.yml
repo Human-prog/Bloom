@@ -1,0 +1,51 @@
+stages:
+  - build
+  - test
+  - deploy
+
+variables:
+  ELECTRON_CACHE: "$CI_PROJECT_DIR/.cache/electron"
+  ELECTRON_BUILDER_CACHE: "$CI_PROJECT_DIR/.cache/electron-builder"
+
+cache:
+  paths:
+    - node_modules/
+    - .cache/
+
+before_script:
+  - npm ci --prefer-offline --no-audit
+
+test:security:
+  stage: test
+  script:
+    - node security-test.js
+    - node integration-test.js
+  artifacts:
+    reports:
+      junit: test-results.xml
+    paths:
+      - dist/
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "push"
+
+build:win:
+  stage: build
+  image: node:22
+  script:
+    - npm ci
+    - npm run dist
+  artifacts:
+    name: "bloom-notch-v$CI_COMMIT_TAG"
+    paths:
+      - dist/
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_TAG
+
+deploy:release:
+  stage: deploy
+  image: alpine:latest
+  script:
+    - echo "Release artifacts prepared. Upload to releases or package registry."
+  rules:
+    - if: $CI_COMMIT_TAG

@@ -34,6 +34,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
     play: () => ipcRenderer.send('media-play'),
     pause: () => ipcRenderer.send('media-pause'),
   },
+  debug: {
+    readLog: () => ipcRenderer.invoke('debug-read-log'),
+  },
   launcher: {
     openApp: (name) => ipcRenderer.invoke('launcher-open-app', { name: String(name || '').slice(0, 128) }),
     confirmLaunch: (name) => ipcRenderer.invoke('launcher-confirm', { name: String(name || '').slice(0, 128) }),

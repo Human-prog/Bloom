@@ -332,14 +332,8 @@ ipcMain.handle('signal-handle', (event, payload) => {
 
 // EMERGENCY HALT: if user says stop, kill everything immediately
 ipcMain.on('emergency-stop', (event) => {
-  try {
-    const dbg = require('./debug-halt');
-    dbg.log('STOP', 'emergency-stop received from sender=' + (event && event.sender ? event.sender.id : 'unknown'));
-  } catch (e) {}
-  if (!security.rateLimiter.allow(event.sender.id)) {
-    try { require('./debug-halt').log('STOP', 'RATE-LIMITED: halt rejected'); } catch (e) {}
-    return;
-  }
+  try { require('./debug-halt').log('STOP', '=== HALT RECEIVED === sender=' + (event && event.sender ? event.sender.id : 'n/a') + ' rateLimit=' + (security.rateLimiter.allow(event.sender.id) ? 'allowed' : 'blocked')); } catch (e) {}
+  // Emergency halt bypasses rate limit; always execute
   security.audit('emergency', 'halt-requested');
   try {
     const dbg = require('./debug-halt');
@@ -348,20 +342,24 @@ ipcMain.on('emergency-stop', (event) => {
     const windows = BrowserWindow.getAllWindows();
     dbg.log('STOP', 'BrowserWindow count=' + windows.length);
     for (const win of windows) {
-      dbg.log('STOP', 'closing window isDestroyed=' + win.isDestroyed() + ' id=' + (win.id || 'n/a'));
-      if (!win.isDestroyed()) win.close();
+      dbg.log('STOP', 'destroying window isDestroyed=' + win.isDestroyed() + ' id=' + (win.id || 'n/a'));
+      if (!win.isDestroyed()) win.destroy(); // synchronous destruction
     }
     mainWindow = null;
     dbg.log('STOP', 'mainWindow nulled');
-    require('./privacy/retention-manager.js').retentionManager.triggerEmergencyStop();
-    dbg.log('STOP', 'retention manager emergency stop triggered');
-    dbg.log('STOP', 'calling app.exit(0)');
-    app.exit(0); // immediate hard exit, no async wait
+    try {
+      require('./privacy/retention-manager.js').retentionManager.triggerEmergencyStop();
+      dbg.log('STOP', 'retention manager emergency stop triggered');
+    } catch (e) { dbg.log('STOP', 'retention manager error=' + e.message); }
+    dbg.log('STOP', 'calling app.exit(1)');
+    try { app.exit(1); } catch (e) { dbg.log('STOP', 'app.exit error=' + e.message); }
   } catch (e) {
     try { require('./debug-halt').log('STOP', 'ERROR in halt: ' + (e && e.message ? e.message.substring(0, 200) : String(e))); } catch (e2) {}
   }
-  try { process.exit(0); } catch (e) {}
-  try { require('./debug-halt').log('STOP', 'process.exit(0) executed'); } catch (e) {}
+  // Nuclear fallback if anything survives
+  try { process.kill(process.pid); } catch (e) {}
+  try { process.exit(1); } catch (e) {}
+  try { require('./debug-halt').log('STOP', 'process.kill+exit(1) executed'); } catch (e) {}
 });
 
 // ---- integrations (main-process only) ----
@@ -500,6 +498,21 @@ ipcMain.handle('auto-launch-set', (event, payload) => {
 });
 
 // ---- quick-launch dock ----
+ipcMain.handle('debug-read-log', (event) => {
+  if (!isFromNotch(event)) return { ok: false, error: 'Untrusted sender' };
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const { app } = require('electron');
+    const logPath = path.join(app.getPath('userData'), 'debug-halt.log');
+    if (fs.existsSync(logPath)) {
+      const content = fs.readFileSync(logPath, 'utf8').slice(0, 4000);
+      return { ok: true, path: logPath, content: content, size: fs.statSync(logPath).size };
+    }
+    return { ok: true, path: logPath, content: 'No debug-halt.log found yet.', size: 0 };
+  } catch (e) { return { ok: false, error: cleanError(e) }; }
+});
+
 ipcMain.handle('launcher-open-app', (event, payload) => {
   if (!isFromNotch(event)) return { ok: false, error: 'Untrusted sender' };
   if (!security.rateLimiter.allow(event.sender.id)) return { ok: false, error: 'Too many requests.' };
