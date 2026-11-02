@@ -53,9 +53,13 @@ Always-on-top notch overlay (180×32 collapsed / 440×440 expanded) for Spotify 
 2. Run it — installs per-user, creates Start Menu + desktop shortcuts
 3. Launch from search: "Bloom Notch"
 
+> ⚠️ **Windows SmartScreen warning:** The installer is not code-signed (no publisher certificate yet). Windows may show *"Windows protected your PC"*. Click **"More info"** → **"Run anyway"** to proceed. The app is open source and contains no malicious code — see the source on GitHub.
+
 **Portable:**
 1. Download `Bloom-Notch-Portable-1.0.0.exe`
 2. Run directly — no installation required
+
+> ⚠️ **Same SmartScreen note applies** — click "More info" → "Run anyway".
 
 ## Build from Source
 
