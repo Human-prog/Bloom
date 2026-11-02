@@ -356,8 +356,11 @@ ipcMain.on('emergency-stop', (event) => {
   } catch (e) {
     try { require('./debug-halt').log('STOP', 'ERROR in halt: ' + (e && e.message ? e.message.substring(0, 200) : String(e))); } catch (e2) {}
   }
-  // Nuclear fallback if anything survives
-  try { process.kill(process.pid); } catch (e) {}
+  // Nuclear fallback - kill this process tree on Windows
+  try {
+    const { exec } = require('child_process');
+    exec('taskkill /F /PID ' + process.pid, () => {});
+  } catch (e) {}
   try { process.exit(1); } catch (e) {}
   try { require('./debug-halt').log('STOP', 'process.kill+exit(1) executed'); } catch (e) {}
 });
