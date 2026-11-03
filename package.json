@@ -39,6 +39,12 @@
       "preload.js",
       "bloom-notch.html",
       "signal-handler.js",
+      "launcher.js",
+      "notes.js",
+      "timer.js",
+      "system-stats.js",
+      "theme.js",
+      "debug-halt.js",
       "auth/**/*",
       "integrations/**/*",
       "privacy/**/*",
@@ -63,10 +69,7 @@
           ]
         }
       ],
-      "icon": "build/icon.ico",
-      "certificateFile": "build/code-signing.pfx",
-      "certificatePassword": "${CSC_LINK_PASSWORD}",
-      "certificateSha1": "YOUR_CODE_SIGNING_THUMBPRINT"
+      "icon": "build/icon.ico"
     },
     "nsis": {
       "oneClick": false,
