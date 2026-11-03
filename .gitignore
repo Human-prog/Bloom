@@ -9,9 +9,14 @@ out/
 .DS_Store
 Thumbs.db
 
-# Logs
-*.log
-npm-debug.log*
+# User data (contains encrypted tokens and config — never commit)
+userData/
+*.enc
+config.json
+debug-halt.log
 
 # Electron downloaded binary
 node_modules/electron/dist/
+
+# Runtime output artifacts (not source)
+app-run-*.txt

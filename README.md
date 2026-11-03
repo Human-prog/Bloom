@@ -14,6 +14,14 @@ Always-on-top notch overlay (180×32 collapsed / 440×440 expanded) for Spotify 
 
 👉 **[Releases page](https://github.com/Human-prog/Bloom/releases/latest)**
 
+> ⚠️ **Windows SmartScreen warning:** The installer is not code-signed (no publisher certificate yet). Windows may show *"Windows protected your PC"*. Click **"More info"** → **"Run anyway"** to proceed. The app is open source and contains no malicious code — see the source on GitHub.
+
+## Support & Contact
+
+- **Bug reports & feature requests:** https://github.com/Human-prog/Bloom/issues
+- **Security vulnerabilities:** See [SECURITY.md](SECURITY.md) — do **not** open public issues for security concerns
+- **General questions:** Open a GitHub Discussion or issue
+
 ## Features
 
 ### Spotify Connect
